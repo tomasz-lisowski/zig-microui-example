@@ -3,7 +3,7 @@ const assert = std.debug.assert;
 
 const main = @import("main.zig");
 const c = main.c;
-const r = @import("renderer.zig");
+const renderer = @import("renderer.zig");
 
 pub var ctx: *c.mu_Context = undefined;
 
@@ -19,7 +19,7 @@ pub fn deinit() void {}
 /// What creates the UI layout and elements
 pub fn processFrame() void {
     c.mu_begin(ctx);
-    drawMainWindow();
+    processMainWindow();
     c.mu_end(ctx);
 }
 
@@ -29,7 +29,7 @@ pub fn draw() void {
         if (cmd == null) {
             break; // No commands
         }
-        switch (cmd.?.@"type") {
+        switch (cmd.?.type) {
             c.MU_COMMAND_TEXT => {
                 const text_orig: [*]u8 = @ptrCast([*]u8, &cmd.?.text.str);
                 var text_len: u16 = 0;
@@ -38,18 +38,17 @@ pub fn draw() void {
                     while (text_orig[char_idx] != 0) : (char_idx += 1) {}
                     text_len = char_idx;
                 }
-                r.drawText(text_orig[0..text_len], cmd.?.text.pos, cmd.?.text.color);
+                renderer.drawText(text_orig[0..text_len], cmd.?.text.pos, cmd.?.text.color);
             },
             c.MU_COMMAND_RECT => {
-                r.drawRect(cmd.?.rect.rect, cmd.?.rect.color);
+                renderer.drawRect(cmd.?.rect.rect, cmd.?.rect.color);
             },
             c.MU_COMMAND_ICON => {
-                assert(cmd.?.icon.id >= 0);
-                const icon_id: u32 = @intCast(u32, cmd.?.icon.id);
-                r.drawIcon(icon_id, cmd.?.icon.rect, cmd.?.icon.color);
+                const icon_id = @intCast(u32, cmd.?.icon.id);
+                renderer.drawIcon(icon_id, cmd.?.icon.rect, cmd.?.icon.color);
             },
             c.MU_COMMAND_CLIP => {
-                r.rectClip(cmd.?.clip.rect);
+                renderer.rectClip(cmd.?.clip.rect);
             },
             else => {},
         }
@@ -62,16 +61,16 @@ fn textWidthWrapper(font: c.mu_Font, text: [*c]const u8, text_len: c_int) callco
     }
     const text_len_u = if (text_len == -1) std.mem.len(text) else @intCast(u32, text_len);
     const text_arr: []const u8 = text[0..text_len_u];
-    return @intCast(c_int, r.textWidth(text_arr));
+    return @intCast(c_int, renderer.textWidth(text_arr));
 }
 
 fn textHeightWrapper(font: c.mu_Font) callconv(.C) c_int {
-    return @intCast(c_int, r.textHeight());
+    return @intCast(c_int, renderer.textHeight());
 }
 
-fn drawMainWindow() void {
-    const width: u16 = r.win_width();
-    const height: u16 = r.win_width();
+fn processMainWindow() void {
+    const width: u16 = renderer.win_width();
+    const height: u16 = renderer.win_height();
     // Flags for a full screen window
     const window_flags = c.MU_OPT_NOINTERACT | c.MU_OPT_NORESIZE | c.MU_OPT_NOCLOSE | c.MU_OPT_NOTITLE;
     if (c.mu_begin_window_ex(ctx, "Main Window", c.mu_rect(0, 0, 0, 0), window_flags) != 0) {

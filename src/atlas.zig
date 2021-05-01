@@ -1,7 +1,14 @@
 const std = @import("std");
 const c = @import("main.zig").c;
 
-pub const dict: [256]c.mu_Rect = comptime dict_gen(c.mu_Rect, 256, elements[0..], indices[0..]);
+// Description of a glyph on the atlas i.e. a rectangle on the atlas which
+// contains pixels of a glyph that can be found at  the 'idx' in the atlas dict.
+const AtlasGlyph = struct {
+    idx: u8,
+    rect: c.mu_Rect,
+};
+
+pub const dict: [256]c.mu_Rect = atlasDictGen(256, elements[0..]);
 
 pub const white: u32 = c.MU_ICON_MAX;
 pub const font: u32 = 0;
@@ -9,231 +16,127 @@ pub const scale: u16 = 1; // Scale of atlas exported from Aseprite
 pub const height: u16 = 256 * scale;
 pub const width: u16 = 256 * scale;
 
-const elements = [_]c.mu_Rect{
-    .{ .y = 0, .x = 0, .w = 8, .h = 16 }, // a
-    .{ .y = 0, .x = 8, .w = 8, .h = 16 }, // b
-    .{ .y = 0, .x = 16, .w = 8, .h = 16 }, // c
-    .{ .y = 0, .x = 24, .w = 8, .h = 16 }, // d
-    .{ .y = 0, .x = 32, .w = 8, .h = 16 }, // e
-    .{ .y = 0, .x = 40, .w = 8, .h = 16 }, // f
-    .{ .y = 0, .x = 48, .w = 8, .h = 16 }, // g
-    .{ .y = 0, .x = 56, .w = 8, .h = 16 }, // h
-    .{ .y = 0, .x = 64, .w = 8, .h = 16 }, // i
-    .{ .y = 0, .x = 72, .w = 8, .h = 16 }, // j
-    .{ .y = 0, .x = 80, .w = 8, .h = 16 }, // k
-    .{ .y = 0, .x = 88, .w = 8, .h = 16 }, // l
-    .{ .y = 0, .x = 96, .w = 8, .h = 16 }, // m
-    .{ .y = 0, .x = 104, .w = 8, .h = 16 }, // n
-    .{ .y = 0, .x = 112, .w = 8, .h = 16 }, // o
-    .{ .y = 0, .x = 120, .w = 8, .h = 16 }, // p
-    .{ .y = 0, .x = 128, .w = 8, .h = 16 }, // q
-    .{ .y = 0, .x = 136, .w = 8, .h = 16 }, // r
-    .{ .y = 0, .x = 144, .w = 8, .h = 16 }, // s
-    .{ .y = 0, .x = 152, .w = 8, .h = 16 }, // t
-    .{ .y = 0, .x = 160, .w = 8, .h = 16 }, // u
-    .{ .y = 0, .x = 168, .w = 8, .h = 16 }, // v
-    .{ .y = 0, .x = 176, .w = 8, .h = 16 }, // w
-    .{ .y = 0, .x = 184, .w = 8, .h = 16 }, // x
-    .{ .y = 0, .x = 192, .w = 8, .h = 16 }, // y
-    .{ .y = 0, .x = 200, .w = 8, .h = 16 }, // z
-    //
-    .{ .y = 16, .x = 0, .w = 8, .h = 16 }, // A
-    .{ .y = 16, .x = 8, .w = 8, .h = 16 }, // B
-    .{ .y = 16, .x = 16, .w = 8, .h = 16 }, // C
-    .{ .y = 16, .x = 24, .w = 8, .h = 16 }, // D
-    .{ .y = 16, .x = 32, .w = 8, .h = 16 }, // E
-    .{ .y = 16, .x = 40, .w = 8, .h = 16 }, // F
-    .{ .y = 16, .x = 48, .w = 8, .h = 16 }, // G
-    .{ .y = 16, .x = 56, .w = 8, .h = 16 }, // H
-    .{ .y = 16, .x = 64, .w = 8, .h = 16 }, // I
-    .{ .y = 16, .x = 72, .w = 8, .h = 16 }, // J
-    .{ .y = 16, .x = 80, .w = 8, .h = 16 }, // K
-    .{ .y = 16, .x = 88, .w = 8, .h = 16 }, // L
-    .{ .y = 16, .x = 96, .w = 8, .h = 16 }, // M
-    .{ .y = 16, .x = 104, .w = 8, .h = 16 }, // N
-    .{ .y = 16, .x = 112, .w = 8, .h = 16 }, // O
-    .{ .y = 16, .x = 120, .w = 8, .h = 16 }, // P
-    .{ .y = 16, .x = 128, .w = 8, .h = 16 }, // Q
-    .{ .y = 16, .x = 136, .w = 8, .h = 16 }, // R
-    .{ .y = 16, .x = 144, .w = 8, .h = 16 }, // S
-    .{ .y = 16, .x = 152, .w = 8, .h = 16 }, // T
-    .{ .y = 16, .x = 160, .w = 8, .h = 16 }, // U
-    .{ .y = 16, .x = 168, .w = 8, .h = 16 }, // V
-    .{ .y = 16, .x = 176, .w = 8, .h = 16 }, // W
-    .{ .y = 16, .x = 184, .w = 8, .h = 16 }, // X
-    .{ .y = 16, .x = 192, .w = 8, .h = 16 }, // Y
-    .{ .y = 16, .x = 200, .w = 8, .h = 16 }, // Z
-    //
-    .{ .y = 32, .x = 0, .w = 8, .h = 16 }, // 0
-    .{ .y = 32, .x = 8, .w = 8, .h = 16 }, // 1
-    .{ .y = 32, .x = 16, .w = 8, .h = 16 }, // 2
-    .{ .y = 32, .x = 24, .w = 8, .h = 16 }, // 3
-    .{ .y = 32, .x = 32, .w = 8, .h = 16 }, // 4
-    .{ .y = 32, .x = 40, .w = 8, .h = 16 }, // 5
-    .{ .y = 32, .x = 48, .w = 8, .h = 16 }, // 6
-    .{ .y = 32, .x = 56, .w = 8, .h = 16 }, // 7
-    .{ .y = 32, .x = 64, .w = 8, .h = 16 }, // 8
-    .{ .y = 32, .x = 72, .w = 8, .h = 16 }, // 9
-    //
-    .{ .y = 32, .x = 80, .w = 8, .h = 16 }, // space
-    .{ .y = 32, .x = 88, .w = 8, .h = 16 }, // !
-    .{ .y = 32, .x = 96, .w = 8, .h = 16 }, // "
-    .{ .y = 32, .x = 104, .w = 8, .h = 16 }, // #
-    .{ .y = 32, .x = 112, .w = 8, .h = 16 }, // $
-    .{ .y = 32, .x = 120, .w = 8, .h = 16 }, // %
-    .{ .y = 32, .x = 128, .w = 8, .h = 16 }, // &
-    .{ .y = 32, .x = 136, .w = 8, .h = 16 }, // '
-    .{ .y = 32, .x = 144, .w = 8, .h = 16 }, // (
-    .{ .y = 32, .x = 152, .w = 8, .h = 16 }, // )
-    .{ .y = 32, .x = 160, .w = 8, .h = 16 }, // *
-    .{ .y = 32, .x = 168, .w = 8, .h = 16 }, // +
-    .{ .y = 32, .x = 176, .w = 8, .h = 16 }, // ,
-    .{ .y = 32, .x = 184, .w = 8, .h = 16 }, // -
-    .{ .y = 32, .x = 192, .w = 8, .h = 16 }, // .
-    .{ .y = 32, .x = 200, .w = 8, .h = 16 }, // /
-    .{ .y = 48, .x = 0, .w = 8, .h = 16 }, // :
-    .{ .y = 48, .x = 8, .w = 8, .h = 16 }, // ;
-    .{ .y = 48, .x = 16, .w = 8, .h = 16 }, // <
-    .{ .y = 48, .x = 24, .w = 8, .h = 16 }, // =
-    .{ .y = 48, .x = 32, .w = 8, .h = 16 }, // >
-    .{ .y = 48, .x = 40, .w = 8, .h = 16 }, // ?
-    .{ .y = 48, .x = 48, .w = 8, .h = 16 }, // @
-    .{ .y = 48, .x = 56, .w = 8, .h = 16 }, // [
-    .{ .y = 48, .x = 64, .w = 8, .h = 16 }, // \
-    .{ .y = 48, .x = 72, .w = 8, .h = 16 }, // ]
-    .{ .y = 48, .x = 80, .w = 8, .h = 16 }, // ^
-    .{ .y = 48, .x = 88, .w = 8, .h = 16 }, // _
-    .{ .y = 48, .x = 96, .w = 8, .h = 16 }, // `
-    .{ .y = 48, .x = 104, .w = 8, .h = 16 }, // {
-    .{ .y = 48, .x = 112, .w = 8, .h = 16 }, // |
-    .{ .y = 48, .x = 120, .w = 8, .h = 16 }, // }
-    .{ .y = 48, .x = 128, .w = 8, .h = 16 }, // ~
-    .{ .y = 48, .x = 136, .w = 8, .h = 16 }, // missing
-    //
-    .{ .y = 48, .x = 144, .w = 16, .h = 16 }, // MU_ICON_CLOSE
-    .{ .y = 48, .x = 160, .w = 16, .h = 16 }, // MU_ICON_CHECK
-    .{ .y = 48, .x = 175, .w = 16, .h = 16 }, // MU_ICON_EXPANDED
-    .{ .y = 48, .x = 192, .w = 16, .h = 16 }, // MU_ICON_COLLAPSED
-    .{ .y = 0, .x = 208, .w = 3, .h = 3 }, // white
-};
+fn atlasRect(x: u32, y: u32, w: u32, h: u32) c.mu_Rect {
+    return .{ .y = @intCast(c_int, y), .x = @intCast(c_int, x), .w = @intCast(c_int, w), .h = @intCast(c_int, h) };
+}
 
-const indices = [_]u32{
-    font + 97, // a
-    font + 98, // b
-    font + 99, // c
-    font + 100, // d
-    font + 101, // e
-    font + 102, // f
-    font + 103, // g
-    font + 104, // h
-    font + 105, // i
-    font + 106, // j
-    font + 107, // k
-    font + 108, // l
-    font + 109, // m
-    font + 110, // n
-    font + 111, // o
-    font + 112, // p
-    font + 113, // q
-    font + 114, // r
-    font + 115, // s
-    font + 116, // t
-    font + 117, // u
-    font + 118, // v
-    font + 119, // w
-    font + 120, // x
-    font + 121, // y
-    font + 122, // z
-    //
-    font + 65, // A
-    font + 66, // B
-    font + 67, // C
-    font + 68, // D
-    font + 69, // E
-    font + 70, // F
-    font + 71, // G
-    font + 72, // H
-    font + 73, // I
-    font + 74, // J
-    font + 75, // K
-    font + 76, // L
-    font + 77, // M
-    font + 78, // N
-    font + 79, // O
-    font + 80, // P
-    font + 81, // Q
-    font + 82, // R
-    font + 83, // S
-    font + 84, // T
-    font + 85, // U
-    font + 86, // V
-    font + 87, // W
-    font + 88, // X
-    font + 89, // Y
-    font + 90, // Z
-    //
-    font + 48, // 0
-    font + 49, // 1
-    font + 50, // 2
-    font + 51, // 3
-    font + 52, // 4
-    font + 53, // 5
-    font + 54, // 6
-    font + 55, // 7
-    font + 56, // 8
-    font + 57, // 9
-    //
-    font + 32, // space
-    font + 33, // !
-    font + 34, // "
-    font + 35, // #
-    font + 36, // $
-    font + 37, // %
-    font + 38, // &
-    font + 39, // '
-    font + 40, // (
-    font + 41, // )
-    font + 42, // *
-    font + 43, // +
-    font + 44, // ,
-    font + 45, // -
-    font + 46, // .
-    font + 47, // /
-    font + 58, // :
-    font + 59, // ;
-    font + 60, // <
-    font + 61, // =
-    font + 62, // >
-    font + 63, // ?
-    font + 64, // @
-    font + 91, // [
-    font + 92, // \
-    font + 93, // ]
-    font + 94, // ^
-    font + 95, // _
-    font + 96, // `
-    font + 123, // {
-    font + 124, // |
-    font + 125, // }
-    font + 126, // ~
-    font + 127, // missing
-    //
-    c.MU_ICON_CLOSE,
-    c.MU_ICON_CHECK,
-    c.MU_ICON_EXPANDED,
-    c.MU_ICON_COLLAPSED,
-    white,
-};
+fn atlasGlyph(atlas_idx: u8, rect: c.mu_Rect) AtlasGlyph {
+    return AtlasGlyph{ .idx = atlas_idx, .rect = rect };
+}
 
-fn dict_gen(comptime T: type, dict_len: comptime u32, els: comptime []const T, idxs: comptime []const u32) comptime [dict_len]T {
-    var dict_buf: [dict_len]T = std.mem.zeroes([dict_len]T);
-    for (idxs) |idx, el_idx| {
-        if (el_idx < els.len) {
-            const el: c.mu_Rect = els[el_idx];
-            dict_buf[idx] = c.mu_Rect{ .x = el.x * scale, .y = el.y * scale, .w = el.w * scale, .h = el.h * scale };
-        } else {
-            break;
-        }
+fn atlasDictGen(comptime dict_len: u32, comptime els: []const AtlasGlyph) [dict_len]c.mu_Rect {
+    var dict_buf: [dict_len]c.mu_Rect = std.mem.zeroes([dict_len]c.mu_Rect);
+    for (els) |el| {
+        const rect: c.mu_Rect = el.rect;
+        dict_buf[el.idx] = c.mu_Rect{ .x = rect.x * scale, .y = rect.y * scale, .w = rect.w * scale, .h = rect.h * scale };
     }
     return dict_buf;
 }
+
+const elements = [_]AtlasGlyph{
+    atlasGlyph(font + 'a', atlasRect(0, 0, 8, 16)),
+    atlasGlyph(font + 'b', atlasRect(8, 0, 8, 16)),
+    atlasGlyph(font + 'c', atlasRect(16, 0, 8, 16)),
+    atlasGlyph(font + 'd', atlasRect(24, 0, 8, 16)),
+    atlasGlyph(font + 'e', atlasRect(32, 0, 8, 16)),
+    atlasGlyph(font + 'f', atlasRect(40, 0, 8, 16)),
+    atlasGlyph(font + 'g', atlasRect(48, 0, 8, 16)),
+    atlasGlyph(font + 'h', atlasRect(56, 0, 8, 16)),
+    atlasGlyph(font + 'i', atlasRect(64, 0, 8, 16)),
+    atlasGlyph(font + 'j', atlasRect(72, 0, 8, 16)),
+    atlasGlyph(font + 'k', atlasRect(80, 0, 8, 16)),
+    atlasGlyph(font + 'l', atlasRect(88, 0, 8, 16)),
+    atlasGlyph(font + 'm', atlasRect(96, 0, 8, 16)),
+    atlasGlyph(font + 'n', atlasRect(104, 0, 8, 16)),
+    atlasGlyph(font + 'o', atlasRect(112, 0, 8, 16)),
+    atlasGlyph(font + 'p', atlasRect(120, 0, 8, 16)),
+    atlasGlyph(font + 'q', atlasRect(128, 0, 8, 16)),
+    atlasGlyph(font + 'r', atlasRect(136, 0, 8, 16)),
+    atlasGlyph(font + 's', atlasRect(144, 0, 8, 16)),
+    atlasGlyph(font + 't', atlasRect(152, 0, 8, 16)),
+    atlasGlyph(font + 'u', atlasRect(160, 0, 8, 16)),
+    atlasGlyph(font + 'v', atlasRect(168, 0, 8, 16)),
+    atlasGlyph(font + 'w', atlasRect(176, 0, 8, 16)),
+    atlasGlyph(font + 'x', atlasRect(184, 0, 8, 16)),
+    atlasGlyph(font + 'y', atlasRect(192, 0, 8, 16)),
+    atlasGlyph(font + 'z', atlasRect(200, 0, 8, 16)),
+    //
+    atlasGlyph(font + 'A', atlasRect(0, 16, 8, 16)),
+    atlasGlyph(font + 'B', atlasRect(8, 16, 8, 16)),
+    atlasGlyph(font + 'C', atlasRect(16, 16, 8, 16)),
+    atlasGlyph(font + 'D', atlasRect(24, 16, 8, 16)),
+    atlasGlyph(font + 'E', atlasRect(32, 16, 8, 16)),
+    atlasGlyph(font + 'F', atlasRect(40, 16, 8, 16)),
+    atlasGlyph(font + 'G', atlasRect(48, 16, 8, 16)),
+    atlasGlyph(font + 'H', atlasRect(56, 16, 8, 16)),
+    atlasGlyph(font + 'I', atlasRect(64, 16, 8, 16)),
+    atlasGlyph(font + 'J', atlasRect(72, 16, 8, 16)),
+    atlasGlyph(font + 'K', atlasRect(80, 16, 8, 16)),
+    atlasGlyph(font + 'L', atlasRect(88, 16, 8, 16)),
+    atlasGlyph(font + 'M', atlasRect(96, 16, 8, 16)),
+    atlasGlyph(font + 'N', atlasRect(104, 16, 8, 16)),
+    atlasGlyph(font + 'O', atlasRect(112, 16, 8, 16)),
+    atlasGlyph(font + 'P', atlasRect(120, 16, 8, 16)),
+    atlasGlyph(font + 'Q', atlasRect(128, 16, 8, 16)),
+    atlasGlyph(font + 'R', atlasRect(136, 16, 8, 16)),
+    atlasGlyph(font + 'S', atlasRect(144, 16, 8, 16)),
+    atlasGlyph(font + 'T', atlasRect(152, 16, 8, 16)),
+    atlasGlyph(font + 'U', atlasRect(160, 16, 8, 16)),
+    atlasGlyph(font + 'V', atlasRect(168, 16, 8, 16)),
+    atlasGlyph(font + 'W', atlasRect(176, 16, 8, 16)),
+    atlasGlyph(font + 'X', atlasRect(184, 16, 8, 16)),
+    atlasGlyph(font + 'Y', atlasRect(192, 16, 8, 16)),
+    atlasGlyph(font + 'Z', atlasRect(200, 16, 8, 16)),
+    //
+    atlasGlyph(font + '0', atlasRect(0, 32, 8, 16)),
+    atlasGlyph(font + '1', atlasRect(8, 32, 8, 16)),
+    atlasGlyph(font + '2', atlasRect(16, 32, 8, 16)),
+    atlasGlyph(font + '3', atlasRect(24, 32, 8, 16)),
+    atlasGlyph(font + '4', atlasRect(32, 32, 8, 16)),
+    atlasGlyph(font + '5', atlasRect(40, 32, 8, 16)),
+    atlasGlyph(font + '6', atlasRect(48, 32, 8, 16)),
+    atlasGlyph(font + '7', atlasRect(56, 32, 8, 16)),
+    atlasGlyph(font + '8', atlasRect(64, 32, 8, 16)),
+    atlasGlyph(font + '9', atlasRect(72, 32, 8, 16)),
+    //
+    atlasGlyph(font + ' ', atlasRect(80, 32, 8, 16)),
+    atlasGlyph(font + '!', atlasRect(88, 32, 8, 16)),
+    atlasGlyph(font + '"', atlasRect(96, 32, 8, 16)),
+    atlasGlyph(font + '#', atlasRect(104, 32, 8, 16)),
+    atlasGlyph(font + '$', atlasRect(112, 32, 8, 16)),
+    atlasGlyph(font + '%', atlasRect(120, 32, 8, 16)),
+    atlasGlyph(font + '&', atlasRect(128, 32, 8, 16)),
+    atlasGlyph(font + '\'', atlasRect(136, 32, 8, 16)),
+    atlasGlyph(font + '(', atlasRect(144, 32, 8, 16)),
+    atlasGlyph(font + ')', atlasRect(152, 32, 8, 16)),
+    atlasGlyph(font + '*', atlasRect(160, 32, 8, 16)),
+    atlasGlyph(font + '+', atlasRect(168, 32, 8, 16)),
+    atlasGlyph(font + ',', atlasRect(176, 32, 8, 16)),
+    atlasGlyph(font + '-', atlasRect(184, 32, 8, 16)),
+    atlasGlyph(font + '.', atlasRect(192, 32, 8, 16)),
+    atlasGlyph(font + '/', atlasRect(200, 32, 8, 16)),
+    atlasGlyph(font + ':', atlasRect(0, 48, 8, 16)),
+    atlasGlyph(font + ';', atlasRect(8, 48, 8, 16)),
+    atlasGlyph(font + '<', atlasRect(16, 48, 8, 16)),
+    atlasGlyph(font + '=', atlasRect(24, 48, 8, 16)),
+    atlasGlyph(font + '>', atlasRect(32, 48, 8, 16)),
+    atlasGlyph(font + '?', atlasRect(40, 48, 8, 16)),
+    atlasGlyph(font + '@', atlasRect(48, 48, 8, 16)),
+    atlasGlyph(font + '[', atlasRect(56, 48, 8, 16)),
+    atlasGlyph(font + '\\', atlasRect(64, 48, 8, 16)),
+    atlasGlyph(font + ']', atlasRect(72, 48, 8, 16)),
+    atlasGlyph(font + '^', atlasRect(80, 48, 8, 16)),
+    atlasGlyph(font + '_', atlasRect(88, 48, 8, 16)),
+    atlasGlyph(font + '`', atlasRect(96, 48, 8, 16)),
+    atlasGlyph(font + '{', atlasRect(104, 48, 8, 16)),
+    atlasGlyph(font + '|', atlasRect(112, 48, 8, 16)),
+    atlasGlyph(font + '}', atlasRect(120, 48, 8, 16)),
+    atlasGlyph(font + '~', atlasRect(128, 48, 8, 16)),
+    atlasGlyph(font + 127, atlasRect(136, 48, 8, 16)), // missing
+    //
+    atlasGlyph(c.MU_ICON_CLOSE, atlasRect(144, 48, 16, 16)),
+    atlasGlyph(c.MU_ICON_CHECK, atlasRect(160, 48, 16, 16)),
+    atlasGlyph(c.MU_ICON_EXPANDED, atlasRect(175, 48, 16, 16)),
+    atlasGlyph(c.MU_ICON_COLLAPSED, atlasRect(192, 48, 16, 16)),
+    atlasGlyph(white, atlasRect(208, 0, 3, 3)),
+};

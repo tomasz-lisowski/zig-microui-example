@@ -2,6 +2,11 @@ const c = @import("main.zig").c;
 const std = @import("std");
 const assert = std.debug.assert;
 
+const gui = @import("gui.zig");
+
+// To check OpenGL for errors at runtime
+const gl_safety_checks = true;
+
 // Draw buffers for microui
 const buffer_size: u32 = 16384;
 var tex_buf = std.mem.zeroes([buffer_size * 8]f32);
@@ -12,14 +17,12 @@ var index_buf = std.mem.zeroes([buffer_size * 6]u32);
 // Window icon
 var icon_loaded = false;
 const icon_dat = @embedFile("../assets/icon.png");
-var icon_rw: *(c.SDL_RWops) = undefined;
 var icon_surface: *(c.SDL_Surface) = undefined;
 
 // Atlas
 var atlas_loaded = false;
 const atlas = @import("atlas.zig");
 const atlas_dat = @embedFile("../assets/atlas.png");
-var atlas_rw: *(c.SDL_RWops) = undefined;
 var atlas_surface: *(c.SDL_Surface) = undefined;
 
 // Window and OpenGL context
@@ -37,24 +40,28 @@ var buf_idx: u32 = 0;
 /// interface functions. Behavior without a call to this func or calling this
 /// more than once leads to non-deterministic behavior.
 pub fn init() !void {
-    errdefer deinit();
-
     // Init the SDL library
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     }
+    errdefer c.SDL_Quit();
 
     // Create a window
     window = c.SDL_CreateWindow("Zig MicroUI Example", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, viewport_width, viewport_height, window_flags) orelse {
         c.SDL_Log("Unable to create window: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
+    errdefer c.SDL_DestroyWindow(window);
 
-    try readTexturePng(icon_dat, &icon_rw, &icon_surface);
+    try readTexturePng(icon_dat, &icon_surface);
+    errdefer c.SDL_FreeSurface(icon_surface);
+
     icon_loaded = true;
 
-    try readTexturePng(atlas_dat, &atlas_rw, &atlas_surface);
+    try readTexturePng(atlas_dat, &atlas_surface);
+    errdefer c.SDL_FreeSurface(atlas_surface);
+
     assert(c.SDL_LockSurface(atlas_surface) == 0); // Makes pixel pointer valid
     atlas_loaded = true;
 
@@ -66,6 +73,7 @@ pub fn init() !void {
         c.SDL_Log("Unable to create GL context: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
+    errdefer c.SDL_GL_DeleteContext(ctx_gl);
 
     // Init OpenGL
     c.glEnable(c.GL_BLEND);
@@ -84,7 +92,9 @@ pub fn init() !void {
     c.glTexImage2D(c.GL_TEXTURE_2D, 0, c.GL_RGBA, atlas.width, atlas.height, 0, c.GL_RGBA, c.GL_UNSIGNED_BYTE, atlas_surface.pixels);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MIN_FILTER, c.GL_NEAREST);
     c.glTexParameteri(c.GL_TEXTURE_2D, c.GL_TEXTURE_MAG_FILTER, c.GL_NEAREST);
-    assert(c.glGetError() == 0);
+    if (gl_safety_checks) {
+        assert(c.glGetError() == 0);
+    }
 }
 
 /// Performs cleanup of SDL etc... hence must be called before quitting.
@@ -93,11 +103,9 @@ pub fn deinit() void {
 
     if (icon_loaded) {
         c.SDL_FreeSurface(icon_surface);
-        _ = c.SDL_RWclose(icon_rw);
     }
     if (atlas_loaded) {
         c.SDL_FreeSurface(atlas_surface);
-        _ = c.SDL_RWclose(atlas_rw);
     }
 
     c.SDL_DestroyWindow(window);
@@ -106,15 +114,15 @@ pub fn deinit() void {
 
 /// Handle window events. Returns true if the program should quit and false if 
 /// not.
-pub fn handleEvents(ctx: *c.mu_Context) bool {
+pub fn handleEvents() bool {
     // Handle SDL events
     var e: c.SDL_Event = undefined;
     while (c.SDL_PollEvent(&e) != 0) {
         switch (e.type) {
             c.SDL_QUIT => return true,
-            c.SDL_MOUSEMOTION => c.mu_input_mousemove(ctx, e.motion.x, e.motion.y),
-            c.SDL_MOUSEWHEEL => c.mu_input_scroll(ctx, 0, e.wheel.y * -30),
-            c.SDL_TEXTINPUT => c.mu_input_text(ctx, &e.text.text),
+            c.SDL_MOUSEMOTION => c.mu_input_mousemove(gui.ctx, e.motion.x, e.motion.y),
+            c.SDL_MOUSEWHEEL => c.mu_input_scroll(gui.ctx, 0, e.wheel.y * -30),
+            c.SDL_TEXTINPUT => c.mu_input_text(gui.ctx, &e.text.text),
 
             c.SDL_MOUSEBUTTONDOWN, c.SDL_MOUSEBUTTONUP => {
                 const button = switch (e.button.button) {
@@ -124,10 +132,10 @@ pub fn handleEvents(ctx: *c.mu_Context) bool {
                     else => 0,
                 };
                 if (button != 0 and e.type == c.SDL_MOUSEBUTTONDOWN) {
-                    c.mu_input_mousedown(ctx, e.button.x, e.button.y, button);
+                    c.mu_input_mousedown(gui.ctx, e.button.x, e.button.y, button);
                 }
                 if (button != 0 and e.type == c.SDL_MOUSEBUTTONUP) {
-                    c.mu_input_mouseup(ctx, e.button.x, e.button.y, button);
+                    c.mu_input_mouseup(gui.ctx, e.button.x, e.button.y, button);
                 }
             },
 
@@ -144,17 +152,15 @@ pub fn handleEvents(ctx: *c.mu_Context) bool {
                     else => 0,
                 };
                 if (mu_char != 0 and e.@"type" == c.SDL_KEYDOWN) {
-                    c.mu_input_keydown(ctx, mu_char);
+                    c.mu_input_keydown(gui.ctx, mu_char);
                 }
                 if (mu_char != 0 and e.@"type" == c.SDL_KEYUP) {
-                    c.mu_input_keyup(ctx, mu_char);
+                    c.mu_input_keyup(gui.ctx, mu_char);
                 }
             },
 
             c.SDL_WINDOWEVENT => {
                 if (e.window.event == c.SDL_WINDOWEVENT_SIZE_CHANGED) {
-                    assert(e.window.data1 >= 0);
-                    assert(e.window.data2 >= 0);
                     const width: u32 = @intCast(u32, e.window.data1);
                     const height: u32 = @intCast(u32, e.window.data2);
                     handleResize(width, height);
@@ -195,14 +201,13 @@ pub fn textWidth(text: []const u8) u32 {
     for (text) |char| {
         const chr: u8 = if (char < 127) char else 127;
         const width: c_int = atlas.dict[atlas.font + chr].w;
-        assert(width >= 0);
         res += @intCast(u32, width);
     }
     return res;
 }
 
 pub fn textHeight() u32 {
-    return atlas.dict[atlas.font + 32].h;
+    return atlas.dict[atlas.font + 'a'].h;
 }
 
 pub fn rectClip(rect: c.mu_Rect) void {
@@ -233,8 +238,6 @@ pub fn win_height() u16 {
 }
 
 fn handleResize(width: u32, height: u32) void {
-    assert(width >= 0 and width < 65536);
-    assert(height >= 0 and height < 65536);
     viewport_width = @intCast(u16, width);
     viewport_height = @intCast(u16, height);
 }
@@ -265,38 +268,38 @@ fn flush() void {
     buf_idx = 0;
 }
 
-fn readTextureBmp(bmp_data: []const u8, rwop: **c.SDL_RWops, surface: **c.SDL_Surface) !void {
+fn readTextureBmp(bmp_data: []const u8, surface: **c.SDL_Surface) !void {
     // Create a read only reader
-    rwop.* = c.SDL_RWFromConstMem(
+    var rwop: *(c.SDL_RWops) = c.SDL_RWFromConstMem(
         @ptrCast(*const c_void, &bmp_data[0]),
         @intCast(c_int, bmp_data.len),
     ) orelse {
         c.SDL_Log("Unable to get RWFromConstMem: %s", c.SDL_GetError());
         return error.SDLImgLoadFailed;
     };
-    errdefer assert(c.SDL_RWclose(rwop.*) == 0);
+    defer assert(c.SDL_RWclose(rwop) == 0);
 
     // Create the surface
-    surface.* = c.SDL_LoadBMP_RW(rwop.*, 0) orelse {
+    surface.* = c.SDL_LoadBMP_RW(rwop, 0) orelse {
         c.SDL_Log("Unable to load bmp: %s", c.SDL_GetError());
         return error.SDLImgLoadFailed;
     };
     errdefer c.SDL_FreeSurface(surface.*);
 }
 
-fn readTexturePng(png_data: []const u8, rwop: **c.SDL_RWops, surface: **c.SDL_Surface) !void {
+fn readTexturePng(png_data: []const u8, surface: **c.SDL_Surface) !void {
     // Create a read only reader
-    rwop.* = c.SDL_RWFromConstMem(
+    var rwop: *(c.SDL_RWops) = c.SDL_RWFromConstMem(
         @ptrCast(*const c_void, &png_data[0]),
         @intCast(c_int, png_data.len),
     ) orelse {
         c.SDL_Log("Unable to get RWFromConstMem: %s", c.SDL_GetError());
         return error.SDLImgLoadFailed;
     };
-    errdefer assert(c.SDL_RWclose(rwop.*) == 0);
+    defer assert(c.SDL_RWclose(rwop) == 0);
 
     // Create the surface
-    surface.* = c.IMG_LoadPNG_RW(rwop.*) orelse {
+    surface.* = c.IMG_LoadPNG_RW(rwop) orelse {
         c.SDL_Log("Unable to load png: %s", c.SDL_GetError());
         return error.SDLImgLoadFailed;
     };

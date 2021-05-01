@@ -5,8 +5,8 @@ pub const c = @cImport({
     @cInclude("SDL2/SDL_image.h");
     @cInclude("microui.h");
 });
-const r = @import("renderer.zig");
-const g = @import("gui.zig");
+const renderer = @import("renderer.zig");
+const gui = @import("gui.zig");
 
 var alloc: *std.mem.Allocator = undefined;
 
@@ -15,20 +15,18 @@ pub fn main() !void {
     defer arena.deinit();
     alloc = &arena.allocator;
 
-    try r.init();
-    defer r.deinit();
+    try renderer.init();
+    defer renderer.deinit();
 
-    try g.init(alloc);
-    defer g.deinit();
+    try gui.init(alloc);
+    defer gui.deinit();
     {
-        var quit = false;
-        while (!quit) {
-            quit = r.handleEvents(g.ctx);
-            g.processFrame();
+        while (!renderer.handleEvents()) {
+            gui.processFrame();
 
-            r.clear();
-            g.draw();
-            r.present();
+            renderer.clear();
+            gui.draw();
+            renderer.present();
         }
     }
 }
