@@ -12,7 +12,7 @@ pub const dict: [256]c.mu_Rect = atlasDictGen(256, elements[0..]);
 
 pub const white: u32 = c.MU_ICON_MAX;
 pub const font: u32 = 0;
-pub const scale: u16 = 1; // Scale of atlas exported from Aseprite
+pub const scale: u16 = 2; // Scale of atlas exported from Aseprite
 pub const height: u16 = 256 * scale;
 pub const width: u16 = 256 * scale;
 
