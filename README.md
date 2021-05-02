@@ -8,5 +8,5 @@ Misc features include:
 - Atlas contains a custom bitmap font and icons (it was created in [Aseprite](https://github.com/aseprite/aseprite))
 
 ## Building
-1. Install OpenGL, SDL2, SDL2_image, and make sure to clone submodules (microui)
+1. Get OpenGL, SDL2, SDL2_image, and make sure to clone submodules (microui)
 2. Run `zig build`
