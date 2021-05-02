@@ -73,15 +73,15 @@ fn processMainWindow() void {
     const height: u16 = renderer.win_height();
     // Flags for a full screen window
     const window_flags = c.MU_OPT_NOINTERACT | c.MU_OPT_NORESIZE | c.MU_OPT_NOCLOSE | c.MU_OPT_NOTITLE;
-    const text_padding_y: u32 = 2;
-    const text_padding_x: u32 = 10;
+    const text_padding_y: u16 = 2;
+    const text_padding_x: u16 = 10;
     if (c.mu_begin_window_ex(ctx, "Main Window", c.mu_rect(0, 0, 0, 0), window_flags) != 0) {
         // Make window fill screen
         const container: *c.mu_Container = c.mu_get_current_container(ctx);
         container.rect.w = width;
         container.rect.h = height;
 
-        c.mu_layout_row(ctx, 2, &[_]i32{ 120, -1 }, @intCast(i32, renderer.textHeight() + text_padding_y));
+        c.mu_layout_row(ctx, 2, &[_]i32{ 120, -1 }, renderer.textHeight() + text_padding_y);
 
         c.mu_label(ctx, "First:");
         if (c.mu_button(ctx, "Button1") != 0) {
@@ -96,7 +96,7 @@ fn processMainWindow() void {
         const popup_name = "My Popup";
         const popup_content = "Hello world!";
         if (c.mu_begin_popup(ctx, popup_name) != 0) {
-            c.mu_layout_row(ctx, 1, &[_]i32{@intCast(i32, renderer.textWidth(popup_content)) + text_padding_x}, @intCast(i32, renderer.textHeight() + text_padding_y));
+            c.mu_layout_row(ctx, 1, &[_]i32{renderer.textWidth(popup_content) + text_padding_x}, renderer.textHeight() + text_padding_y);
             c.mu_label(ctx, popup_content);
             c.mu_end_popup(ctx);
         }

@@ -196,17 +196,17 @@ pub fn drawIcon(id: u32, rect: c.mu_Rect, color: c.mu_Color) void {
     pushQuad(c.mu_rect(x, y, src.w, src.h), src, color);
 }
 
-pub fn textWidth(text: []const u8) u32 {
-    var res: u32 = 0;
+pub fn textWidth(text: []const u8) u16 {
+    var res: u16 = 0;
     for (text) |char| {
         const chr: u8 = if (char < 127) char else 127;
         const width: c_int = atlas.dict[atlas.font + chr].w;
-        res += @intCast(u32, width);
+        res += @intCast(u16, width);
     }
     return res;
 }
 
-pub fn textHeight() u32 {
+pub fn textHeight() u16 {
     return atlas.dict[atlas.font + 'a'].h;
 }
 
